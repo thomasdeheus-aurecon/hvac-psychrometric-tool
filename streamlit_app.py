@@ -1,6 +1,10 @@
 import streamlit as st
 import psychrolib as psy
 import pandas as pd
+from psychrochart import PsychroChart
+import matplotlib.pyplot as plt
+from psychrochart import PsychroChart
+import matplotlib.pyplot as plt
 
 # Set the unit system to SI
 psy.SetUnitSystem(psy.SI)
@@ -122,6 +126,31 @@ if True:
         degree_of_saturation = psy.GetDegreeOfSaturation(dry_bulb, hum_ratio, pressure_pa)
         vapor_pressure = psy.GetVapPresFromHumRatio(hum_ratio, pressure_pa)
         
+        # Psychrometric Chart
+        st.subheader("📈 Psychrometric Chart")
+        
+        try:
+            # Create psychrometric chart with minimal styling
+            chart = PsychroChart.create('ashrae')
+            ax = chart.plot()
+            # Plot the point
+            # Add labelled points and conexions between points
+            points = {
+                'Current Point': {
+                    'label': 'Current Point',
+                    'style': {'color': [0.855, 0.004, 0.278, 0.8],
+                            'marker': 'o', 'markersize': 15},
+                    'xy': (dry_bulb, rel_hum * 100)}}
+            
+            chart.plot_points_dbt_rh(points)
+            
+            # Display the chart in Streamlit
+            fig = ax.figure
+            st.pyplot(fig)
+            plt.close()
+        except Exception as chart_error:
+            st.warning(f"Could not generate psychrometric chart: {str(chart_error)}")
+
         # Display results
         st.header("📊 Calculated Psychrometric Properties")
         
@@ -197,6 +226,8 @@ if True:
         }
         other_df = pd.DataFrame(other_data)
         st.table(other_df)
+        
+        
     
         
     except Exception as e:
