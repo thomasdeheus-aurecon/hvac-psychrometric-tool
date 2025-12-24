@@ -89,23 +89,10 @@ elif humidity_method == "Dew Point (°C)":
     )
     dew_point = humidity_value
 
-# Optional: Wind Chill
-st.sidebar.subheader("Optional: Wind Chill")
-calculate_wind_chill = st.sidebar.checkbox("Calculate Wind Chill")
-if calculate_wind_chill:
-    wind_speed = st.sidebar.number_input(
-        "Wind Speed (m/s)",
-        min_value=0.0,
-        max_value=50.0,
-        value=5.0,
-        step=0.5
-    )
 
-# Calculate button
-calculate = st.sidebar.button("Calculate Psychrometric Properties", type="primary")
 
-# Main content area
-if calculate:
+# Main content area - calculations happen automatically
+if True:
     try:
         # Convert pressure from kPa to Pa for PsychroLib
         pressure_pa = pressure * 1000
@@ -126,7 +113,7 @@ if calculate:
             wet_bulb = psy.GetTWetBulbFromHumRatio(dry_bulb, hum_ratio, pressure_pa)
         
         # Calculate all other properties
-        enthalpy = psy.GetMoistAirEnthalpy(dry_bulb, hum_ratio)
+        enthalpy = psy.GetMoistAirEnthalpy(dry_bulb, hum_ratio) / 1000  # Convert to kJ/kg
         specific_volume = psy.GetMoistAirVolume(dry_bulb, hum_ratio, pressure_pa)
         density = psy.GetMoistAirDensity(dry_bulb, hum_ratio, pressure_pa)
         
@@ -210,19 +197,7 @@ if calculate:
         }
         other_df = pd.DataFrame(other_data)
         st.table(other_df)
-        
-        # Wind Chill (if requested)
-        if calculate_wind_chill:
-            # Wind chill formula (Environment Canada/US NWS)
-            if dry_bulb <= 10 and wind_speed > 1.34:
-                wind_chill = 13.12 + 0.6215 * dry_bulb - 11.37 * (wind_speed * 3.6) ** 0.16 + 0.3965 * dry_bulb * (wind_speed * 3.6) ** 0.16
-                st.subheader("🌬️ Wind Chill")
-                st.metric("Wind Chill Temperature", f"{wind_chill:.1f} °C")
-            else:
-                st.info("Wind chill is only calculated for temperatures ≤ 10°C and wind speeds > 1.34 m/s")
-        
-        # Success message
-        st.success("✅ Calculations completed successfully!")
+    
         
     except Exception as e:
         st.error(f"❌ Error in calculation: {str(e)}")
