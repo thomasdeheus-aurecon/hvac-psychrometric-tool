@@ -4,6 +4,13 @@ import pandas as pd
 from psychrochart import PsychroChart
 import matplotlib.pyplot as plt
 import json
+import distinctipy
+
+# number of colours to generate
+N = 30
+# generate N visually distinct colours
+colours = distinctipy.get_colors(N)
+
 
 # Set the unit system to SI
 psy.SetUnitSystem(psy.SI)
@@ -13,13 +20,12 @@ if 'points_data' not in st.session_state:
     st.session_state.points_data = []  # List of dicts with point info
 if 'point_counter' not in st.session_state:
     st.session_state.point_counter = 1
-
+#st.set_page_config(layout="wide")
 st.title("🌡️ Psychrometric Calculator")
-st.write("Calculate psychrometric properties of moist air using SI units")
+st.write("Calculate and plot psychrometric properties of moist air using SI units.")
 
 # Main page - Input Parameters Section
-st.header("🎯 Add New Point")
-
+st.header("Add New Condition")
 # Main content area - calculations happen automatically
 if True:
     try:
@@ -29,7 +35,7 @@ if True:
         # Point Management Section - Now includes name input
         #st.header("💾 Save Point to Chart")
         
-        tab1, tab2 = st.tabs(["➕ Add Input Point", "🔀 Add Mixed Condition"])
+        tab1, tab2 = st.tabs(["➕ Add Condition", "🔀 Add Mixed Condition"])
         
         with tab1:
             col1, col2 = st.columns(2)
@@ -60,15 +66,15 @@ if True:
                     # Calculate pressure from elevation using standard atmosphere
                     pressure = 101.325 * (1 - 2.25577e-5 * elevation) ** 5.2559
                 
-                st.metric("Calculated Pressure", f"{pressure:.3f} kPa")
+                #st.metric("Calculated Pressure", f"{pressure:.3f} kPa")
             
             col1, col2 = st.columns([3, 1])
             
             with col1:
-                new_point_name = st.text_input("Point Name", value=f"Point_{st.session_state.point_counter}", key="new_point_name")
+                new_point_name = st.text_input("Point Name", value=f"Point_{st.session_state.point_counter}", key=f"new_point_name_{st.session_state.point_counter}")
             
             with col2:
-                new_point_color = st.color_picker("Color", value="#DA0146", key="new_point_color")
+                new_point_color = st.color_picker("Color", value=distinctipy.get_hex(colours[st.session_state.point_counter - 1]), key=f"new_point_color_{st.session_state.point_counter}")
             
             # Temperature and Humidity Parameters
             col1, col2, col3, col4 = st.columns(4)
@@ -173,6 +179,7 @@ if True:
                         st.session_state.point_counter += 1
                         st.success(f"✅ Added {new_point_name}")
                         st.rerun()
+                        
 
             
             
@@ -187,10 +194,10 @@ if True:
                 col1, col2 = st.columns([3, 1])
                 
                 with col1:
-                    mixed_point_name = st.text_input("Mixed Point Name", value=f"Mixed_{st.session_state.point_counter}", key="mixed_point_name")
+                    mixed_point_name = st.text_input("Mixed Point Name", value=f"Mixed_{st.session_state.point_counter}", key=f"mixed_point_name_{st.session_state.point_counter}")
                 
                 with col2:
-                    mixed_point_color = st.color_picker("Color", value="#0146DA", key="mixed_point_color")
+                    mixed_point_color = st.color_picker("Color", value=distinctipy.get_hex(colours[st.session_state.point_counter - 1]), key=f"mixed_point_color_{st.session_state.point_counter}")
                 
                 col1, col2, col3 = st.columns(3)
                 
@@ -233,7 +240,7 @@ if True:
         
         # Display and edit existing points
         if st.session_state.points_data:
-            st.subheader("📋 Saved Points")
+            st.subheader("Plotted Conditions")
             
             # Get list of all point names for connection dropdown
             all_point_names = [p['name'] for p in st.session_state.points_data]
@@ -264,22 +271,22 @@ if True:
                             mixed_wb = psy.GetTWetBulbFromHumRatio(mixed_db, mixed_hr, pressure_pa)
                             
                             # Update point data
-                            point['dry_bulb'] = round(mixed_db, 2)
-                            point['rel_hum'] = round(mixed_rh, 2)
-                            point['wet_bulb'] = round(mixed_wb, 2)
+                            point['dry_bulb'] = round(mixed_db, 1)
+                            point['rel_hum'] = round(mixed_rh, 1)
+                            point['wet_bulb'] = round(mixed_wb, 1)
                         except:
                             pass
                 
                 # Display point based on type
                 if point_type == 'input':
-                    expander_title = f"📍 {point['name']} - {point['dry_bulb']}°C DB, {point['wet_bulb']}°C WB"
+                    expander_title = f"📍 {point['name']}"
                 else:
-                    expander_title = f"🔀 {point['name']} (Mixed) - {point['dry_bulb']}°C DB, {point['wet_bulb']}°C WB"
+                    expander_title = f"🔀 {point['name']} (Mixed)"
                 
                 with st.expander(expander_title, expanded=False):
                     if point_type == 'input':
                         # Input point - fully editable
-                        cols = st.columns([2, 2, 2, 2, 2, 1])
+                        cols = st.columns([2, 2, 2, 2, 1])
                         
                         with cols[0]:
                             new_name = st.text_input(
@@ -296,13 +303,13 @@ if True:
                                     point['name'] = new_name
                         
                         with cols[1]:
-                            point['dry_bulb'] = st.number_input(
+                            point['dry_bulb'] = round(st.number_input(
                                 "Dry Bulb (°C)",
                                 value=float(point['dry_bulb']),
                                 step=0.1,
                                 format="%.1f",
                                 key=f"db_{idx}"
-                            )
+                            ), 2)
                         
                         with cols[2]:
                             point['wet_bulb'] = st.number_input(
@@ -313,18 +320,19 @@ if True:
                                 key=f"wb_{idx}"
                             )
                         
-                        with cols[3]:
-                            point['rel_hum'] = st.number_input(
-                                "RH (%)",
-                                value=float(point['rel_hum']),
-                                min_value=0.0,
-                                max_value=100.0,
-                                step=1.0,
-                                format="%.1f",
-                                key=f"rh_{idx}"
-                            )
+                        # Recalculate wet bulb based on dry bulb and RH
+                        try:
+                            point_pressure_pa = point.get('pressure', pressure) * 1000
+                            calculated_rh = psy.GetRelHumFromTWetBulb(
+                                point['dry_bulb'], 
+                                point['wet_bulb'], 
+                                point_pressure_pa
+                            ) * 100
+                            point['rel_hum'] = round(calculated_rh, 1)
+                        except:
+                            pass
                         
-                        with cols[4]:
+                        with cols[3]:
                             # Connection dropdown - allow None or any other point
                             connection_options = ['None'] + [p for p in all_point_names if p != point['name']]
                             current_connection = point['connects_to'] if point['connects_to'] else 'None'
@@ -332,19 +340,22 @@ if True:
                                 current_connection = 'None'
                             
                             selected_connection = st.selectbox(
-                                "Connects To",
+                                "Next State",
                                 options=connection_options,
                                 index=connection_options.index(current_connection),
                                 key=f"conn_{idx}"
                             )
                             point['connects_to'] = None if selected_connection == 'None' else selected_connection
                         
-                        with cols[5]:
+                        with cols[4]:
                             point['color'] = st.color_picker(
                                 "Color",
                                 value=point['color'],
                                 key=f"color_{idx}"
                             )
+                        
+                        # Display calculated wet bulb (read-only)
+                        # st.info(f"{point['rel_hum']}% RH")
                     
                     else:  # Mixed point
                         cols = st.columns([2, 2, 2, 2, 2, 1])
@@ -398,7 +409,7 @@ if True:
                                 current_connection = 'None'
                             
                             selected_connection = st.selectbox(
-                                "Connects To",
+                                "Next State",
                                 options=connection_options,
                                 index=connection_options.index(current_connection),
                                 key=f"conn_{idx}"
@@ -413,21 +424,123 @@ if True:
                             )
 
                         # Display calculated properties (read-only)
-                        st.info(f"**Calculated:** {point['dry_bulb']:.1f}°C DB, {point['wet_bulb']:.1f}°C WB, {point['rel_hum']:.1f}% RH")
+                        #st.info(f"**Calculated:** {point['dry_bulb']:.1f}°C DB, {point['wet_bulb']:.1f}°C WB, {point['rel_hum']:.1f}% RH")
+                    
+                    # Calculate and display full properties table for this point
+                    try:
+                        point_pressure_pa = point.get('pressure', pressure) * 1000
+                        point_db = point['dry_bulb']
+                        point_rh = point['rel_hum'] / 100
+                        
+                        # Calculate all properties
+                        point_hr = psy.GetHumRatioFromRelHum(point_db, point_rh, point_pressure_pa)
+                        point_wb = psy.GetTWetBulbFromRelHum(point_db, point_rh, point_pressure_pa)
+                        point_dp = psy.GetTDewPointFromRelHum(point_db, point_rh)
+                        point_enthalpy = psy.GetMoistAirEnthalpy(point_db, point_hr) / 1000
+                        point_vol = psy.GetMoistAirVolume(point_db, point_hr, point_pressure_pa)
+                        point_density = psy.GetMoistAirDensity(point_db, point_hr, point_pressure_pa)
+                        point_vp = psy.GetVapPresFromHumRatio(point_hr, point_pressure_pa) / 1000
+                        point_sat_vp = psy.GetSatVapPres(point_db) / 1000
+                        point_deg_sat = psy.GetDegreeOfSaturation(point_db, point_hr, point_pressure_pa)
+                        
+                        # Combined properties table
+                        st.subheader("Properties")
+                        combined_data = {
+                            "Property": [
+                                "Barometric Pressure",
+                                "Dry Bulb",
+                                "Wet Bulb",
+                                "Dew Point",
+                                "Relative Humidity",
+                                "Humidity Ratio",
+                                "Enthalpy",
+                                "Specific Volume",
+                                "Density",
+                                "Degree of Saturation",
+                                "Absolute Humidity",
+                                "Partial Pressure of Water Vapor",
+                                "Saturation Vapor Pressure"
+                            ],
+                            "Value": [
+                                f"{point.get('pressure', pressure):.3f}",
+                                f"{point_db:.2f}",
+                                f"{point_wb:.2f}",
+                                f"{point_dp:.2f}",
+                                f"{point_rh * 100:.2f}",
+                                f"{point_hr:.6f}",
+                                f"{point_enthalpy:.2f}",
+                                f"{point_vol:.4f}",
+                                f"{point_density:.4f}",
+                                f"{point_deg_sat * 100:.2f}",
+                                f"{point_hr * point_density:.6f}",
+                                f"{point_vp:.3f}",
+                                f"{point_sat_vp:.3f}"
+                            ],
+                            "Units": [
+                                "kPa",
+                                "°C",
+                                "°C",
+                                "°C",
+                                "%",
+                                "kg_v/kg_a",
+                                "kJ/kg",
+                                "m³/kg_a",
+                                "kg/m³",
+                                "%",
+                                "kg_v/m³",
+                                "kPa",
+                                "kPa"
+                            ]
+                        }
+                        combined_df = pd.DataFrame(combined_data)
+                        st.table(combined_df)
+                    except Exception as e:
+                        st.error(f"Error calculating properties: {str(e)}")
                     
                     # Delete button
                     if st.button(f"🗑️ Delete", key=f"del_{idx}"):
                         st.session_state.points_data.pop(idx)
                         st.rerun()
             
-            # Clear all button
-            if st.button("🗑️ Clear All Points"):
-                st.session_state.points_data = []
-                st.session_state.point_counter = 1
-                st.rerun()
+            # Export/Import and Clear buttons
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # Export points to JSON
+                export_data = {
+                    'points_data': st.session_state.points_data,
+                    'point_counter': st.session_state.point_counter
+                }
+                json_str = json.dumps(export_data, indent=2)
+                st.download_button(
+                    label="📥 Export Points",
+                    data=json_str,
+                    file_name="psychrometric_points.json",
+                    mime="application/json",
+                    use_container_width=True
+                )
+            
+            with col2:
+                if st.button("🗑️ Clear All Points", use_container_width=True):
+                    st.session_state.points_data = []
+                    st.session_state.point_counter = 1
+                    st.rerun()
+        else:
+            # Show import option even when no points exist
+            st.info("No saved points yet. Add points above or import existing data.")
+            uploaded_file = st.file_uploader("📤 Import Points", type=['json'], key="import_points_empty")
+            if uploaded_file is not None:
+                try:
+                    import_data = json.loads(uploaded_file.getvalue().decode('utf-8'))
+                    st.session_state.points_data = import_data.get('points_data', [])
+                    st.session_state.point_counter = import_data.get('point_counter', 1)
+                    st.success(f"✅ Imported {len(st.session_state.points_data)} points")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"❌ Error importing file: {str(e)}")
         
         # Psychrometric Chart
-        st.subheader("📈 Psychrometric Chart")
+        st.subheader("Psychrometric Chart")
         
         try:
             # Create psychrometric chart
@@ -480,117 +593,6 @@ if True:
         except Exception as chart_error:
             st.warning(f"Could not generate psychrometric chart: {str(chart_error)}")
         
-        # Point Properties Dropdown
-        if st.session_state.points_data:
-            st.divider()
-            st.subheader("📊 Point Properties")
-            
-            point_names = [p['name'] for p in st.session_state.points_data]
-            selected_point_name = st.selectbox(
-                "Select a point to view its properties:",
-                options=point_names,
-                key="selected_point_for_properties"
-            )
-            
-            # Find the selected point
-            selected_point = next((p for p in st.session_state.points_data if p['name'] == selected_point_name), None)
-            
-            if selected_point:
-                point_type = selected_point.get('type', 'input')
-                
-                # Display point type badge
-                if point_type == 'input':
-                    st.info(f"📍 **Input Point:** {selected_point['name']}")
-                else:
-                    st.info(f"🔀 **Mixed Condition Point:** {selected_point['name']} (from {selected_point['source1']} & {selected_point['source2']})")
-                
-                # Calculate full properties for the selected point
-                try:
-                    point_pressure_pa = selected_point.get('pressure', pressure) * 1000
-                    point_db = selected_point['dry_bulb']
-                    point_rh = selected_point['rel_hum'] / 100
-                    
-                    # Calculate properties
-                    point_hr = psy.GetHumRatioFromRelHum(point_db, point_rh, point_pressure_pa)
-                    point_wb = psy.GetTWetBulbFromRelHum(point_db, point_rh, point_pressure_pa)
-                    point_dp = psy.GetTDewPointFromRelHum(point_db, point_rh)
-                    point_enthalpy = psy.GetMoistAirEnthalpy(point_db, point_hr) / 1000
-                    point_vol = psy.GetMoistAirVolume(point_db, point_hr, point_pressure_pa)
-                    point_density = psy.GetMoistAirDensity(point_db, point_hr, point_pressure_pa)
-                    point_vp = psy.GetVapPresFromHumRatio(point_hr, point_pressure_pa) / 1000
-                    point_sat_vp = psy.GetSatVapPres(point_db) / 1000
-                    point_deg_sat = psy.GetDegreeOfSaturation(point_db, point_hr, point_pressure_pa)
-                    
-                    # Chart Properties Table
-                    st.subheader("Air Properties")
-                    chart_data = {
-                        "Property": [
-                            "Barometric Pressure",
-                            "Dry Bulb",
-                            "Wet Bulb",
-                            "Dew Point",
-                            "Enthalpy",
-                            "Relative Humidity",
-                            "Humidity Ratio",
-                            "Moist Air Specific Volume"
-                        ],
-                        "Value": [
-                            f"{selected_point.get('pressure', pressure):.3f}",
-                            f"{point_db:.2f}",
-                            f"{point_wb:.2f}",
-                            f"{point_dp:.2f}",
-                            f"{point_enthalpy:.2f}",
-                            f"{point_rh * 100:.2f}",
-                            f"{point_hr:.6f}",
-                            f"{point_vol:.4f}"
-                        ],
-                        "Units": [
-                            "kPa",
-                            "°C",
-                            "°C",
-                            "°C",
-                            "kJ/kg",
-                            "%",
-                            "kg_v/kg_a",
-                            "m³/kg_a"
-                        ]
-                    }
-                    chart_df = pd.DataFrame(chart_data)
-                    st.table(chart_df)
-                    
-                    # Other Thermodynamic Properties
-                    st.subheader("Other Thermodynamic Properties")
-                    other_data = {
-                        "Property": [
-                            "Specific Humidity",
-                            "Absolute Humidity",
-                            "Degree of Saturation",
-                            "Density",
-                            "Partial Pressure of Water Vapor",
-                            "Saturation Vapor Pressure"
-                        ],
-                        "Value": [
-                            f"{point_hr:.6f}",
-                            f"{point_hr * point_density:.6f}",
-                            f"{point_deg_sat * 100:.2f}",
-                            f"{point_density:.4f}",
-                            f"{point_vp:.3f}",
-                            f"{point_sat_vp:.3f}"
-                        ],
-                        "Units": [
-                            "kg_v/kg",
-                            "kg_v/m³",
-                            "%",
-                            "kg/m³",
-                            "kPa",
-                            "kPa"
-                        ]
-                    }
-                    other_df = pd.DataFrame(other_data)
-                    st.table(other_df)
-                
-                except Exception as e:
-                    st.error(f"Error calculating properties: {str(e)}")
         
     except Exception as e:
         st.error(f"❌ Error in calculation: {str(e)}")
